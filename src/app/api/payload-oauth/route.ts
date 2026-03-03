@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
   const next = searchParams.get('next') ?? '/'
   // Only allow relative redirects to prevent open redirect attacks
   const redirectTo = next.startsWith('/') ? next : '/'
+  // Use the public server URL as base to avoid redirecting to internal Docker host
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || req.nextUrl.origin
 
   try {
     // Read the NextAuth session (validates the short-lived NextAuth JWT cookie)
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     if (!session?.user?.email) {
       return NextResponse.redirect(
-        new URL(`/login?toast=oauth-error&next=${encodeURIComponent(redirectTo)}`, req.url),
+        new URL(`/login?toast=oauth-error&next=${encodeURIComponent(redirectTo)}`, baseUrl),
       )
     }
 
@@ -70,11 +72,11 @@ export async function GET(req: NextRequest) {
       maxAge: TOKEN_EXPIRY_SECONDS,
     })
 
-    return NextResponse.redirect(new URL(redirectTo, req.url))
+    return NextResponse.redirect(new URL(redirectTo, baseUrl))
   } catch (error) {
     console.error('[payload-oauth] Exchange failed:', error)
     return NextResponse.redirect(
-      new URL(`/login?toast=oauth-error&next=${encodeURIComponent(redirectTo)}`, req.url),
+      new URL(`/login?toast=oauth-error&next=${encodeURIComponent(redirectTo)}`, baseUrl),
     )
   }
 }
