@@ -7,7 +7,12 @@ export function middleware(request: NextRequest) {
     request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
 
   // Rewrite admin.* subdomain requests to /admin path
-  if (host.startsWith('admin.') && !request.nextUrl.pathname.startsWith('/admin')) {
+  // Exclude /api/ paths to avoid breaking Payload's REST API calls
+  if (
+    host.startsWith('admin.') &&
+    !request.nextUrl.pathname.startsWith('/admin') &&
+    !request.nextUrl.pathname.startsWith('/api/')
+  ) {
     const url = request.nextUrl.clone()
     const suffix = request.nextUrl.pathname === '/' ? '' : request.nextUrl.pathname
     url.pathname = '/admin' + suffix
