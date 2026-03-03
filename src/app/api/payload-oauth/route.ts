@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { getPayload } from 'payload'
 import jwt from 'jsonwebtoken'
 
@@ -62,9 +61,10 @@ export async function GET(req: NextRequest) {
       { algorithm: 'HS256' },
     )
 
-    // Set payload-token cookie — same attributes Payload uses itself
-    const cookieStore = await cookies()
-    cookieStore.set('payload-token', token, {
+    // Set payload-token cookie on the redirect response directly —
+    // cookies().set() does not attach to NextResponse.redirect() in Next.js 15
+    const response = NextResponse.redirect(new URL(redirectTo, baseUrl))
+    response.cookies.set('payload-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       maxAge: TOKEN_EXPIRY_SECONDS,
     })
 
-    return NextResponse.redirect(new URL(redirectTo, baseUrl))
+    return response
   } catch (error) {
     console.error('[payload-oauth] Exchange failed:', error)
     return NextResponse.redirect(
