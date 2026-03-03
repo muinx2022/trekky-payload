@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  const host = request.headers.get('host') || ''
+  // Cloudflare tunnel may pass the original host via x-forwarded-host
+  const host =
+    request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
 
   // Rewrite admin.* subdomain requests to /admin path
   if (host.startsWith('admin.') && !request.nextUrl.pathname.startsWith('/admin')) {
