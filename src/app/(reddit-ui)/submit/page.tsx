@@ -1,11 +1,10 @@
-import { cookies } from 'next/headers'
+﻿import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { User } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 import { Navbar } from '../Navbar'
 import { SubmitForm } from './SubmitForm'
 
@@ -14,16 +13,9 @@ export const dynamic = 'force-dynamic'
 export default async function SubmitPage() {
   const cookieStore = await cookies()
   const token = cookieStore.get('payload-token')?.value
-
   if (!token) redirect('/?toast=login-required')
 
-  const meRes = await fetch(`${getServerSideURL()}/api/users/me`, {
-    headers: { Authorization: `JWT ${token}` },
-    cache: 'no-store',
-  })
-  if (!meRes.ok) redirect('/?toast=login-required')
-
-  const { user }: { user: User | null } = await meRes.json()
+  const user = await getCurrentUser()
   if (!user) redirect('/?toast=login-required')
 
   const payload = await getPayload({ config: configPromise })
@@ -34,14 +26,19 @@ export default async function SubmitPage() {
     overrideAccess: true,
   })
 
-  if (communitiesResult.totalDocs === 0) {
-    redirect('/admin/collections/communities/create')
-  }
-
   return (
     <>
       <Navbar username={user.username ?? null} />
-      <SubmitForm communities={communitiesResult.docs} token={token} username={user.username ?? ''} />
+      {communitiesResult.totalDocs === 0 ? (
+        <div style={{ maxWidth: 480, margin: '80px auto', textAlign: 'center', padding: '0 16px' }}>
+          <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Chưa có cộng đồng nào</p>
+          <p style={{ color: 'var(--muted-foreground)', fontSize: 14 }}>
+            Cần tạo ít nhất một cộng đồng trước khi đăng bài.
+          </p>
+        </div>
+      ) : (
+        <SubmitForm communities={communitiesResult.docs} token={token} username={user.username ?? ''} />
+      )}
     </>
   )
 }

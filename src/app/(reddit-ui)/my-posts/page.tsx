@@ -6,7 +6,7 @@ import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
 import type { Community, RedditPost, User } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 import { Navbar } from '../Navbar'
 import { PostActions } from './PostActions'
 
@@ -36,16 +36,9 @@ function fmt(n: number) {
 export default async function MyPostsPage() {
   const cookieStore = await cookies()
   const token = cookieStore.get('payload-token')?.value
-
   if (!token) redirect('/?toast=login-required')
 
-  const meRes = await fetch(`${getServerSideURL()}/api/users/me`, {
-    headers: { Authorization: `JWT ${token}` },
-    cache: 'no-store',
-  })
-  if (!meRes.ok) redirect('/?toast=login-required')
-
-  const { user }: { user: User | null } = await meRes.json()
+  const user = await getCurrentUser()
   if (!user) redirect('/?toast=login-required')
 
   const payload = await getPayload({ config: configPromise })

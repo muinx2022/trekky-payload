@@ -1,30 +1,12 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getPayload } from 'payload'
 import type { Where } from 'payload'
 
 import configPromise from '@payload-config'
 import type { User, Vote } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
-
-async function getCurrentUser(): Promise<User | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('payload-token')?.value
-  if (!token) return null
-  try {
-    const res = await fetch(`${getServerSideURL()}/api/users/me`, {
-      headers: { Authorization: `JWT ${token}` },
-      cache: 'no-store',
-    })
-    if (!res.ok) return null
-    const { user } = await res.json()
-    return user ?? null
-  } catch {
-    return null
-  }
-}
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 
 async function applyVote(user: User, postID: number, value: 1 | -1) {
   const payload = await getPayload({ config: configPromise })

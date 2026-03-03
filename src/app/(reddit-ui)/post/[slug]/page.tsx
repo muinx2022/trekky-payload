@@ -3,13 +3,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import type { Where } from 'payload'
 
 import type { Comment, Community, Gallery, Media, RedditPost, User, Vote } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 import { Navbar } from '../../Navbar'
 import { CommentComposerProvider, ReplyComposer, TopCommentComposer } from './CommentComposer'
 import { PostGalleryLightbox } from './PostGalleryLightbox'
@@ -91,24 +90,12 @@ function userAvatarURL(user: User | null): string | null {
   return user.avatar.url ?? null
 }
 
-async function getCurrentUser(): Promise<{ user: User | null; token: string | null }> {
+async function getCurrentUserWithToken(): Promise<{ user: User | null; token: string | null }> {
   const cookieStore = await cookies()
   const token = cookieStore.get('payload-token')?.value ?? null
   if (!token) return { user: null, token: null }
-
-  try {
-    const res = await fetch(`${getServerSideURL()}/api/users/me`, {
-      headers: { Authorization: `JWT ${token}` },
-      cache: 'no-store',
-    })
-
-    if (!res.ok) return { user: null, token: null }
-
-    const data = (await res.json()) as { user?: User | null }
-    return { user: data.user ?? null, token }
-  } catch {
-    return { user: null, token: null }
-  }
+  const user = await getCurrentUser()
+  return { user, token: user ? token : null }
 }
 
 function buildTree(comments: Comment[]): CommentNode[] {
@@ -236,7 +223,7 @@ async function votePostAction(formData: FormData) {
 
   if (!postID || (value !== 1 && value !== -1)) return
 
-  const { user } = await getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) return
 
   await applyVote({
@@ -258,7 +245,7 @@ async function voteCommentAction(formData: FormData) {
 
   if (!commentID || (value !== 1 && value !== -1)) return
 
-  const { user } = await getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) return
 
   await applyVote({
@@ -281,7 +268,7 @@ async function createCommentAction(formData: FormData) {
 
   if (!postID || !content) return
 
-  const { user } = await getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) return
 
   const payload = await getPayload({ config: configPromise })
@@ -460,7 +447,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       sort: '-createdAt',
       overrideAccess: true,
     }),
-    getCurrentUser(),
+    getCurrentUserWithToken(),
   ])
 
   if (!postResult) notFound()
@@ -554,9 +541,9 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </div>
       </div>
 
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 20px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex' }}>
+      <div className="winku-post-page-layout" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 20px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+        <div className="winku-post-page-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="winku-post-view-card" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex' }}>
             <div className="winku-post-card__actions-col" style={{ borderRadius: '8px 0 0 8px' }}>
               <PostActionBar
                 isAuthenticated={Boolean(currentUser)}
@@ -586,11 +573,11 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               />
             </div>
 
-            <div style={{ flex: 1, padding: '16px 20px' }}>
+            <div className="winku-post-view-body" style={{ flex: 1, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 10, flexWrap: 'wrap' }}>
                 <Link href={`/c/${cSlug}`} style={{ fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none' }}>c/{cSlug}</Link>
                 <span>•</span>
-                <span>Đăng bởi u/{author}</span>
+                <Link href={`/u/${author}`} style={{ textDecoration: 'none', color: 'inherit' }}>u/{author}</Link>
                 <span>•</span>
                 <span>{timeAgo(post.createdAt)}</span>
               </div>
@@ -609,10 +596,29 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
               {galleryMediaItems.length > 0 && <PostGalleryLightbox items={galleryMediaItems} />}
 
+              {Array.isArray(post.tags) && post.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                  {(post.tags as { id: number; name: string; slug: string }[]).map((tag) => (
+                    <a
+                      key={tag.id}
+                      href={`/tag/${tag.slug ?? tag.name}`}
+                      style={{
+                        fontSize: 12, padding: '2px 10px', borderRadius: 999,
+                        background: 'var(--muted)', border: '1px solid var(--border)',
+                        color: 'var(--muted-foreground)', fontWeight: 500,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      #{tag.slug ?? tag.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+
             </div>
           </div>
 
-          <div id="comments" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px' }}>
+          <div id="comments" className="winku-post-comments-card" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px' }}>
             <CommentComposerProvider>
               <div style={{ marginBottom: 24 }}>
                 <TopCommentComposer
@@ -644,7 +650,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           </div>
         </div>
 
-        <aside style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <aside className="winku-post-page-aside" style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="winku-panel" style={{ overflow: 'hidden' }}>
             <div className="winku-community-banner" />
             <div className="winku-community-card__body">

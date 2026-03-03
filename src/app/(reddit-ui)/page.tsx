@@ -1,38 +1,17 @@
 ﻿import type { Metadata } from 'next/types'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
 
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import type { Where } from 'payload'
 
 import type { Community, Gallery, Media, RedditPost, User, Vote } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 import { Navbar } from './Navbar'
 import { PostCardActionsLeft } from './PostCardActionsLeft'
 import { SubmitCTA } from './SubmitCTA'
 
 export const dynamic = 'force-dynamic'
-
-async function getCurrentUser(): Promise<User | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('payload-token')?.value
-  if (!token) return null
-
-  try {
-    const res = await fetch(`${getServerSideURL()}/api/users/me`, {
-      headers: { Authorization: `JWT ${token}` },
-      cache: 'no-store',
-    })
-
-    if (!res.ok) return null
-
-    const { user } = await res.json()
-    return user ?? null
-  } catch {
-    return null
-  }
-}
 
 function fmt(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
@@ -122,7 +101,7 @@ function PostCard({
             {author[0]?.toUpperCase()}
           </div>
           <div className="winku-post-card__author-info">
-            <p className="winku-post-card__author-name">u/{author}</p>
+            <Link href={`/u/${author}`} className="winku-post-card__author-name" style={{ textDecoration: 'none' }}>u/{author}</Link>
             <div className="winku-post-card__meta">
               <Link href={`/c/${slug}`} className="winku-post-card__community-tag">
                 c/{slug}
@@ -157,6 +136,20 @@ function PostCard({
               <img src={thumbUrl} alt={post.title} loading="lazy" />
             )}
           </Link>
+        )}
+
+        {Array.isArray(post.tags) && post.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 0 2px' }}>
+            {(post.tags as { id: number; name: string; slug: string }[]).map((tag) => (
+              <a key={tag.id} href={`/tag/${tag.slug ?? tag.name}`} style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 999,
+                background: 'var(--muted)', border: '1px solid var(--border)',
+                color: 'var(--muted-foreground)', fontWeight: 500, textDecoration: 'none',
+              }}>
+                #{tag.slug ?? tag.name}
+              </a>
+            ))}
+          </div>
         )}
 
       </div>

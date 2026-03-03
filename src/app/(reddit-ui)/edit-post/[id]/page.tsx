@@ -5,7 +5,7 @@ import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
 import type { Community, Gallery, Media, RedditPost, User } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getCurrentUser } from '@/utilities/getCurrentUser'
 import { Navbar } from '../../Navbar'
 import { SubmitForm } from '../../submit/SubmitForm'
 
@@ -20,13 +20,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
   const token = cookieStore.get('payload-token')?.value
   if (!token) redirect('/?toast=login-required')
 
-  const meRes = await fetch(`${getServerSideURL()}/api/users/me`, {
-    headers: { Authorization: `JWT ${token}` },
-    cache: 'no-store',
-  })
-  if (!meRes.ok) redirect('/?toast=login-required')
-
-  const { user }: { user: User | null } = await meRes.json()
+  const user = await getCurrentUser()
   if (!user) redirect('/?toast=login-required')
 
   const payload = await getPayload({ config: configPromise })
@@ -56,6 +50,12 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
       return { id: m.id, url: m.url ?? null, mimeType: m.mimeType ?? null }
     }) ?? []
 
+  const postTags = Array.isArray(post.tags)
+    ? post.tags
+        .filter((t) => typeof t === 'object' && t !== null)
+        .map((t) => ({ id: (t as { id: number; name: string }).id, name: (t as { id: number; name: string }).name }))
+    : []
+
   return (
     <>
       <Navbar
@@ -73,6 +73,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
           slug: post.slug ?? '',
           galleryId,
           galleryItems,
+          tags: postTags,
         }}
       />
     </>
