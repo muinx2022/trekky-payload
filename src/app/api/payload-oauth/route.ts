@@ -20,8 +20,10 @@ export async function GET(req: NextRequest) {
   try {
     // Read the NextAuth session (validates the short-lived NextAuth JWT cookie)
     const session = await auth()
+    console.log('[payload-oauth] session:', JSON.stringify({ email: session?.user?.email, provider: (session as any)?.provider }))
 
     if (!session?.user?.email) {
+      console.log('[payload-oauth] no session — redirecting to login error')
       return NextResponse.redirect(
         new URL(`/login?toast=oauth-error&next=${encodeURIComponent(redirectTo)}`, baseUrl),
       )
@@ -61,6 +63,8 @@ export async function GET(req: NextRequest) {
       { algorithm: 'HS256' },
     )
 
+    console.log('[payload-oauth] upserted user:', payloadUser.id, payloadUser.email)
+
     // Set payload-token cookie on the redirect response directly —
     // cookies().set() does not attach to NextResponse.redirect() in Next.js 15
     const response = NextResponse.redirect(new URL(redirectTo, baseUrl))
@@ -72,6 +76,7 @@ export async function GET(req: NextRequest) {
       maxAge: TOKEN_EXPIRY_SECONDS,
     })
 
+    console.log('[payload-oauth] cookie set, redirecting to:', redirectTo)
     return response
   } catch (error) {
     console.error('[payload-oauth] Exchange failed:', error)
