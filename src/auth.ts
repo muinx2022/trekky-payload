@@ -4,6 +4,7 @@ import GitHub from 'next-auth/providers/github'
 import Facebook from 'next-auth/providers/facebook'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
